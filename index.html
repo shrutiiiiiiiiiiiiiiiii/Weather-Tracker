@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether | Atmospheric Weather</title>
+    <meta name="description" content="A world-class atmospheric weather experience.">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background System -->
+    <div class="background-container" id="bg-container">
+        <canvas id="atmospheric-fx"></canvas>
+        <div class="mesh-layer" id="mesh-layer">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+            <div class="blob blob-3"></div>
+        </div>
+        <div class="noise-overlay"></div>
+    </div>
+
+    <main class="app-container">
+        <header class="search-section">
+            <div class="search-container glass">
+                <button id="locate-btn" class="icon-btn" title="Use my location">
+                    <i data-lucide="crosshair"></i>
+                </button>
+                <input type="text" id="city-input" placeholder="Search a global location..." autocomplete="off">
+                <button id="search-btn" class="btn-primary">Search</button>
+            </div>
+            <div class="units-toggle glass">
+                <button id="unit-c" class="unit-btn active">°C</button>
+                <button id="unit-f" class="unit-btn">°F</button>
+            </div>
+            <button id="sound-toggle" class="icon-btn glass" title="Atmospheric Audio (Off)">
+                <i data-lucide="volume-x"></i>
+            </button>
+        </header>
+
+        <!-- India Specific Shortcuts -->
+        <div class="india-shortcuts-wrapper">
+            <span class="shortcut-label">Popular in India:</span>
+            <div class="india-shortcuts">
+                <button class="city-pill glass" data-city="New Delhi">Delhi</button>
+                <button class="city-pill glass" data-city="Mumbai">Mumbai</button>
+                <button class="city-pill glass" data-city="Bangalore">Bangalore</button>
+                <button class="city-pill glass" data-city="Kolkata">Kolkata</button>
+                <button class="city-pill glass" data-city="Chennai">Chennai</button>
+                <button class="city-pill glass" data-city="Hyderabad">Hyderabad</button>
+            </div>
+        </div>
+
+        <section class="weather-display" id="weather-section">
+            <!-- Hero Card -->
+            <div class="current-weather-card glass" id="current-card">
+                <div class="location-box">
+                    <i data-lucide="map-pin"></i>
+                    <h2 id="city-name">Loading...</h2>
+                </div>
+                <div class="temp-box">
+                    <span id="current-temp">--</span><span class="unit">°C</span>
+                </div>
+                <div class="condition-box">
+                    <span id="weather-desc">Syncing atmosphere...</span>
+                </div>
+            </div>
+
+            <!-- Side Details -->
+            <div class="details-section">
+                <div class="detail-item glass">
+                    <i data-lucide="droplets"></i>
+                    <div class="detail-content">
+                        <span class="label">Humidity</span>
+                        <span class="value" id="humidity">--%</span>
+                    </div>
+                </div>
+                <div class="detail-item glass">
+                    <i data-lucide="wind"></i>
+                    <div class="detail-content">
+                        <span class="label">Wind</span>
+                        <span class="value" id="wind-speed">-- km/h</span>
+                    </div>
+                </div>
+                <div class="detail-item glass">
+                    <i data-lucide="thermometer"></i>
+                    <div class="detail-content">
+                        <span class="label">Feels Like</span>
+                        <span class="value" id="feels-like">--</span>
+                    </div>
+                </div>
+                <div class="detail-item glass">
+                    <i data-lucide="eye"></i>
+                    <div class="detail-content">
+                        <span class="label">Visibility</span>
+                        <span class="value" id="visibility">--</span>
+                    </div>
+                </div>
+                <!-- AQI Monitor -->
+                <div class="detail-item glass aq-monitor" id="aqi-card">
+                    <i data-lucide="info"></i>
+                    <div class="detail-content">
+                        <span class="label">Air Quality (AQI)</span>
+                        <div class="aqi-display">
+                            <span class="value" id="aqi-value">--</span>
+                            <span class="aqi-status" id="aqi-status">Syncing...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Hourly Trend Section -->
+        <section class="hourly-trend-container glass">
+            <h3 class="section-title-small">24-Hour Atmosphere Trend</h3>
+            <div class="chart-wrapper">
+                <svg id="hourly-chart" viewBox="0 0 800 150" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="rgba(255,255,255,0.3)" />
+                            <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+                        </linearGradient>
+                    </defs>
+                    <path class="chart-area" d="" fill="url(#chart-gradient)" />
+                    <path class="chart-line" d="" />
+                    <g class="chart-points"></g>
+                    <g class="chart-labels"></g>
+                </svg>
+            </div>
+        </section>
+
+        <!-- Forecast Horizontal Section -->
+        <section class="forecast-container">
+            <h3 class="section-title">Atmospheric Forecast</h3>
+            <div class="forecast-grid" id="forecast-grid">
+                <!-- Forecast dynamic content -->
+            </div>
+        </section>
+
+        <footer class="app-footer">
+            <p>Designed for Excellence. Data by Open-Meteo.</p>
+        </footer>
+    </main>
+
+    <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
