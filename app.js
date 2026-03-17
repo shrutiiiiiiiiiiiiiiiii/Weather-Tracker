@@ -1,5 +1,5 @@
 /**
- * Aether V2 - Atmospheric Weather Intelligence
+ * Aether V2 - Atmospheric Weather Intelligence (Multi-Location)
  */
 
 const elements = {
@@ -8,12 +8,17 @@ const elements = {
     locateBtn: document.getElementById('locate-btn'),
     unitC: document.getElementById('unit-c'),
     unitF: document.getElementById('unit-f'),
+    refreshBtn: document.getElementById('refresh-btn'),
+    weatherDashboard: document.getElementById('weather-dashboard'),
+    detailedView: document.getElementById('detailed-view'),
+    closeDetail: document.getElementById('close-detail'),
     weatherSection: document.getElementById('weather-section'),
-    locationName: document.getElementById('location-name'),
-    temp: document.getElementById('temp'),
+    cityName: document.getElementById('city-name'),
+    currentTemp: document.getElementById('current-temp'),
     weatherDesc: document.getElementById('weather-desc'),
     humidity: document.getElementById('humidity'),
-    wind: document.getElementById('wind'),
+    windSpeed: document.getElementById('wind-speed'),
+    feelsLike: document.getElementById('feels-like'),
     visibility: document.getElementById('visibility'),
     forecastGrid: document.getElementById('forecast-grid'),
     soundToggle: document.getElementById('sound-toggle'),
@@ -25,7 +30,7 @@ const elements = {
 };
 
 let currentUnit = 'celsius';
-let lastCoords = { lat: 40.7128, lon: -74.0060, name: 'New York' };
+let savedLocations = [];
 
 // V2 Theme System
 const themes = {
@@ -72,6 +77,7 @@ class AtmosphericFX {
     }
 
     setType(type) {
+        if (this.type === type) return;
         this.type = type;
         this.particles = [];
         const count = type === 'rain' ? 100 : type === 'snow' ? 150 : type === 'stars' ? 200 : 0;
@@ -134,7 +140,7 @@ async function getCoordinates(city) {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`;
     const response = await fetch(url);
     const data = await response.json();
-    if (data.length > 0) return { lat: data[0].lat, lon: data[0].lon, name: data[0].display_name.split(',')[0] };
+    if (data.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name.split(',')[0] };
     throw new Error('Atmospheric coordinates not found');
 }
 
@@ -208,105 +214,204 @@ function drawTrendChart(hourlyData) {
     elements.hourlyChart.querySelector('.chart-labels').innerHTML = labelsHtml;
 }
 
-function updateUI(data, name) {
+
+
+function updateGlobalTheme(weather, themeKey) {
+    const info = weatherCodeMap[weather.current.weather_code] || { theme: 'clear' };
+    let key = themeKey || info.theme;
+    if (weather.current.is_day === 0 && key === 'clear') key = 'night';
+    const theme = themes[key];
+    
+    document.documentElement.style.setProperty('--gradient-1', theme.colors[0]);
+    document.documentElement.style.setProperty('--gradient-2', theme.colors[1]);
+    document.documentElement.style.setProperty('--gradient-3', theme.colors[2]);
+    
+    vfx.setType(theme.fx);
+}
+
+function showDetailedView(data, aqiData, name) {
     const current = data.current;
     const info = weatherCodeMap[current.weather_code] || { desc: 'Unknown', theme: 'clear' };
     
-    // Smooth Transition Out
-    elements.weatherSection.style.opacity = '0';
-    elements.weatherSection.style.transform = 'translateY(10px)';
+    elements.cityName.textContent = name;
+    elements.currentTemp.textContent = Math.round(current.temperature_2m);
+    elements.weatherDesc.textContent = info.desc;
+    elements.humidity.textContent = `${current.relative_humidity_2m}%`;
+    elements.windSpeed.textContent = `${current.wind_speed_10m} km/h`;
+    elements.feelsLike.textContent = `${Math.round(current.apparent_temperature)}°`;
+    elements.visibility.textContent = `${(current.visibility / 1000).toFixed(1)} km`;
 
-    setTimeout(() => {
-        elements.cityName.textContent = name;
-        elements.currentTemp.textContent = Math.round(current.temperature_2m);
-        elements.weatherDesc.textContent = info.desc;
-        elements.humidity.textContent = `${current.relative_humidity_2m}%`;
-        elements.windSpeed.textContent = `${current.wind_speed_10m} km/h`;
-        elements.feelsLike.textContent = `${Math.round(current.apparent_temperature)}°`;
-        elements.visibility.textContent = `${(current.visibility / 1000).toFixed(1)} km`;
+    updateGlobalTheme(data);
 
-        // Update Theme
-        let themeKey = info.theme;
-        if (current.is_day === 0 && themeKey === 'clear') themeKey = 'night';
-        const theme = themes[themeKey];
+    // Update Forecast
+    elements.forecastGrid.innerHTML = '';
+    data.daily.time.forEach((t, i) => {
+        if (i === 0) return;
+        const day = new Date(t).toLocaleDateString('en-US', { weekday: 'short' });
+        const fcCode = data.daily.weather_code[i];
+        const fcIcon = (weatherCodeMap[fcCode] || { icon: 'cloud' }).icon;
         
-        document.documentElement.style.setProperty('--gradient-1', theme.colors[0]);
-        document.documentElement.style.setProperty('--gradient-2', theme.colors[1]);
-        document.documentElement.style.setProperty('--gradient-3', theme.colors[2]);
-        
-        vfx.setType(theme.fx);
+        elements.forecastGrid.innerHTML += `
+            <div class="forecast-item glass">
+                <span class="forecast-day">${day}</span>
+                <i data-lucide="${fcIcon}"></i>
+                <span class="forecast-temp">${Math.round(data.daily.temperature_2m_max[i])}°</span>
+            </div>
+        `;
+    });
 
-        // Update Forecast
-        elements.forecastGrid.innerHTML = '';
-        data.daily.time.forEach((t, i) => {
-            if (i === 0) return;
-            const day = new Date(t).toLocaleDateString('en-US', { weekday: 'short' });
-            const fcCode = data.daily.weather_code[i];
-            const fcIcon = (weatherCodeMap[fcCode] || { icon: 'cloud' }).icon;
-            
-            elements.forecastGrid.innerHTML += `
-                <div class="forecast-item glass">
-                    <span class="forecast-day">${day}</span>
-                    <i data-lucide="${fcIcon}"></i>
-                    <span class="forecast-temp">${Math.round(data.daily.temperature_2m_max[i])}°</span>
-                </div>
-            `;
-        });
+    if (aqiData) updateAQIUI(aqiData.current.us_epa_index);
+    if (data.hourly) drawTrendChart(data.hourly);
 
-        lucide.createIcons();
-        elements.weatherSection.style.opacity = '1';
-        elements.weatherSection.style.transform = 'translateY(0)';
-    }, 400);
+    lucide.createIcons();
+    elements.detailedView.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 }
 
-async function performUpdate(lat, lon, name) {
-    elements.searchBtn.disabled = true;
+async function renderDashboard() {
+    elements.weatherDashboard.innerHTML = '';
+    
+    if (savedLocations.length === 0) {
+        elements.weatherDashboard.innerHTML = `
+            <div class="loading-state glass">
+                <p>No locations saved. Search a city to get started!</p>
+            </div>
+        `;
+        return;
+    }
+
+    const fetches = savedLocations.map(loc => 
+        Promise.all([getWeatherData(loc.lat, loc.lon), getAQIData(loc.lat, loc.lon)])
+    );
+
     try {
-        const [weatherData, aqiData] = await Promise.all([
-            getWeatherData(lat, lon),
-            getAQIData(lat, lon)
-        ]);
+        const results = await Promise.all(fetches);
         
-        lastCoords = { lat, lon, name };
-        updateUI(weatherData, name);
+        results.forEach(([weather, aqi], index) => {
+            const loc = savedLocations[index];
+            const info = weatherCodeMap[weather.current.weather_code] || { desc: 'Unknown', icon: 'cloud' };
+            const card = document.createElement('div');
+            card.className = 'weather-card-mini glass';
+            card.innerHTML = `
+                <button class="card-remove-btn" data-index="${index}" title="Remove Location">
+                    <i data-lucide="trash-2"></i>
+                </button>
+                <div class="mini-location">${loc.name}</div>
+                <div class="mini-temp-box">
+                    <span class="mini-temp">${Math.round(weather.current.temperature_2m)}</span>
+                    <span class="mini-unit">°${currentUnit === 'celsius' ? 'C' : 'F'}</span>
+                </div>
+                <div class="mini-desc">${info.desc}</div>
+                <i data-lucide="${info.icon}"></i>
+            `;
+            
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.card-remove-btn')) return;
+                showDetailedView(weather, aqi, loc.name);
+            });
+
+            card.addEventListener('mouseenter', () => {
+                updateGlobalTheme(weather);
+            });
+            
+            elements.weatherDashboard.appendChild(card);
+        });
+
+        if (results.length > 0) {
+            updateGlobalTheme(results[0][0]);
+        }
         
-        if (aqiData) updateAQIUI(aqiData.current.us_epa_index);
-        if (weatherData.hourly) drawTrendChart(weatherData.hourly);
-        
+        lucide.createIcons();
+        updateLastUpdated();
+    } catch (e) {
+        console.error(e);
+        elements.weatherDashboard.innerHTML = `<div class="loading-state glass"><p>Error fetching atmosphere data.</p></div>`;
+    }
+}
+
+async function addLocation(city) {
+    try {
+        const coords = await getCoordinates(city);
+        // Check if already exists
+        if (savedLocations.some(l => l.name === coords.name)) {
+            alert('Location already in dashboard');
+            return;
+        }
+        savedLocations.push(coords);
+        await renderDashboard();
     } catch (e) { alert(e.message); }
-    finally { elements.searchBtn.disabled = false; }
+}
+
+function removeLocation(index) {
+    savedLocations.splice(index, 1);
+    renderDashboard();
+}
+
+function updateLastUpdated() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const statusEl = document.getElementById('update-status');
+    if (statusEl) {
+        statusEl.textContent = `Atmosphere synced at ${timeString}`;
+    }
 }
 
 // Event Listeners
+elements.refreshBtn.addEventListener('click', async () => {
+    elements.refreshBtn.classList.add('refreshing');
+    await renderDashboard();
+    setTimeout(() => {
+        elements.refreshBtn.classList.remove('refreshing');
+    }, 1000);
+});
+
 elements.searchBtn.addEventListener('click', async () => {
     const city = elements.cityInput.value.trim();
-    if (!city) return;
-    try {
-        const coords = await getCoordinates(city);
-        await performUpdate(coords.lat, coords.lon, coords.name);
-    } catch (e) { alert(e.message); }
+    if (city) addLocation(city);
 });
 
-// Sound Toggle Logic
-let soundActive = false;
+elements.cityInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        const city = elements.cityInput.value.trim();
+        if (city) addLocation(city);
+    }
+});
+
+elements.closeDetail.addEventListener('click', () => {
+    elements.detailedView.classList.add('hidden');
+    document.body.style.overflow = 'auto';
+});
+
+elements.weatherDashboard.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.card-remove-btn');
+    if (removeBtn) {
+        removeLocation(parseInt(removeBtn.dataset.index));
+    }
+});
+
+elements.unitC.addEventListener('click', () => {
+    if (currentUnit === 'fahrenheit') {
+        currentUnit = 'celsius';
+        elements.unitC.classList.add('active');
+        elements.unitF.classList.remove('active');
+        renderDashboard();
+    }
+});
+
+elements.unitF.addEventListener('click', () => {
+    if (currentUnit === 'celsius') {
+        currentUnit = 'fahrenheit';
+        elements.unitF.classList.add('active');
+        elements.unitC.classList.remove('active');
+        renderDashboard();
+    }
+});
+
 elements.soundToggle.addEventListener('click', () => {
-    soundActive = !soundActive;
-    elements.soundToggle.classList.toggle('active', soundActive);
+    const isActive = elements.soundToggle.classList.toggle('active');
     const icon = elements.soundToggle.querySelector('i');
-    icon.setAttribute('data-lucide', soundActive ? 'volume-2' : 'volume-x');
-    elements.soundToggle.title = soundActive ? 'Atmospheric Audio (On)' : 'Atmospheric Audio (Off)';
+    icon.setAttribute('data-lucide', isActive ? 'volume-2' : 'volume-x');
     lucide.createIcons();
-});
-
-// City Pill Listeners
-document.querySelectorAll('.city-pill').forEach(pill => {
-    pill.addEventListener('click', async () => {
-        const city = pill.getAttribute('data-city');
-        try {
-            const coords = await getCoordinates(city);
-            await performUpdate(coords.lat, coords.lon, coords.name);
-        } catch (e) { alert(e.message); }
-    });
 });
 
 elements.locateBtn.addEventListener('click', () => {
@@ -315,51 +420,21 @@ elements.locateBtn.addEventListener('click', () => {
         const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
         const data = await resp.json();
         const name = data.address.city || data.address.town || data.address.village || 'Current Location';
-        await performUpdate(latitude, longitude, name);
+        await addLocation(name);
     });
 });
 
-const toggleUnit = (unit) => {
-    if (currentUnit === unit) return;
-    currentUnit = unit;
-    elements.unitC.classList.toggle('active', unit === 'celsius');
-    elements.unitF.classList.toggle('active', unit === 'fahrenheit');
-    document.querySelector('.unit').textContent = unit === 'celsius' ? '°C' : '°F';
-    performUpdate(lastCoords.lat, lastCoords.lon, lastCoords.name);
-};
+document.querySelectorAll('.city-pill').forEach(pill => {
+    pill.addEventListener('click', () => addLocation(pill.dataset.city));
+});
 
-elements.unitC.addEventListener('click', () => toggleUnit('celsius'));
-elements.unitF.addEventListener('click', () => toggleUnit('fahrenheit'));
-
-// Mouse Parallax Interaction
+// Parallax
 document.addEventListener('mousemove', (e) => {
     const x = (e.clientX - window.innerWidth / 2) / 60;
     const y = (e.clientY - window.innerHeight / 2) / 60;
-    if(document.getElementById('mesh-layer')) {
-        document.getElementById('mesh-layer').style.transform = `translate(${x}px, ${y}px)`;
-    }
+    const layer = document.getElementById('mesh-layer');
+    if (layer) layer.style.transform = `translate(${x}px, ${y}px)`;
 });
 
-// Initial (Prioritize Geolocation, otherwise New Delhi)
-const initApp = () => {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-                const { latitude, longitude } = pos.coords;
-                try {
-                    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await resp.json();
-                    const name = data.address.city || data.address.state || 'Current Location';
-                    await performUpdate(latitude, longitude, name);
-                } catch (e) {
-                    performUpdate(28.6139, 77.2090, 'New Delhi');
-                }
-            },
-            () => performUpdate(28.6139, 77.2090, 'New Delhi')
-        );
-    } else {
-        performUpdate(28.6139, 77.2090, 'New Delhi');
-    }
-};
-
-initApp();
+// Init
+renderDashboard();

@@ -34,6 +34,9 @@
                 <button id="unit-c" class="unit-btn active">°C</button>
                 <button id="unit-f" class="unit-btn">°F</button>
             </div>
+            <button id="refresh-btn" class="icon-btn glass" title="Refresh Atmosphere">
+                <i data-lucide="rotate-cw"></i>
+            </button>
             <button id="sound-toggle" class="icon-btn glass" title="Atmospheric Audio (Off)">
                 <i data-lucide="volume-x"></i>
             </button>
@@ -52,90 +55,107 @@
             </div>
         </div>
 
-        <section class="weather-display" id="weather-section">
-            <!-- Hero Card -->
-            <div class="current-weather-card glass" id="current-card">
-                <div class="location-box">
-                    <i data-lucide="map-pin"></i>
-                    <h2 id="city-name">Loading...</h2>
-                </div>
-                <div class="temp-box">
-                    <span id="current-temp">--</span><span class="unit">°C</span>
-                </div>
-                <div class="condition-box">
-                    <span id="weather-desc">Syncing atmosphere...</span>
-                </div>
+        <section class="weather-dashboard" id="weather-dashboard">
+            <!-- Weather cards will be injected here -->
+            <div class="loading-state glass">
+                <p>Syncing atmospheres...</p>
             </div>
+        </section>
 
-            <!-- Side Details -->
-            <div class="details-section">
-                <div class="detail-item glass">
-                    <i data-lucide="droplets"></i>
-                    <div class="detail-content">
-                        <span class="label">Humidity</span>
-                        <span class="value" id="humidity">--%</span>
+        <!-- Detailed View (Hidden by default, shown when a card is clicked) -->
+        <section class="detailed-view hidden" id="detailed-view">
+            <button id="close-detail" class="icon-btn glass close-btn">
+                <i data-lucide="x"></i>
+            </button>
+            <div class="weather-display" id="weather-section">
+                <!-- Hero Card -->
+                <div class="current-weather-card glass" id="current-card">
+                    <div class="location-box">
+                        <i data-lucide="map-pin"></i>
+                        <h2 id="city-name">Loading...</h2>
+                    </div>
+                    <div class="temp-box">
+                        <span id="current-temp">--</span><span class="unit">°C</span>
+                    </div>
+                    <div class="condition-box">
+                        <span id="weather-desc">Syncing atmosphere...</span>
                     </div>
                 </div>
-                <div class="detail-item glass">
-                    <i data-lucide="wind"></i>
-                    <div class="detail-content">
-                        <span class="label">Wind</span>
-                        <span class="value" id="wind-speed">-- km/h</span>
+
+                <!-- Side Details -->
+                <div class="details-section">
+                    <div class="detail-item glass">
+                        <i data-lucide="droplets"></i>
+                        <div class="detail-content">
+                            <span class="label">Humidity</span>
+                            <span class="value" id="humidity">--%</span>
+                        </div>
                     </div>
-                </div>
-                <div class="detail-item glass">
-                    <i data-lucide="thermometer"></i>
-                    <div class="detail-content">
-                        <span class="label">Feels Like</span>
-                        <span class="value" id="feels-like">--</span>
+                    <div class="detail-item glass">
+                        <i data-lucide="wind"></i>
+                        <div class="detail-content">
+                            <span class="label">Wind</span>
+                            <span class="value" id="wind-speed">-- km/h</span>
+                        </div>
                     </div>
-                </div>
-                <div class="detail-item glass">
-                    <i data-lucide="eye"></i>
-                    <div class="detail-content">
-                        <span class="label">Visibility</span>
-                        <span class="value" id="visibility">--</span>
+                    <div class="detail-item glass">
+                        <i data-lucide="thermometer"></i>
+                        <div class="detail-content">
+                            <span class="label">Feels Like</span>
+                            <span class="value" id="feels-like">--</span>
+                        </div>
                     </div>
-                </div>
-                <!-- AQI Monitor -->
-                <div class="detail-item glass aq-monitor" id="aqi-card">
-                    <i data-lucide="info"></i>
-                    <div class="detail-content">
-                        <span class="label">Air Quality (AQI)</span>
-                        <div class="aqi-display">
-                            <span class="value" id="aqi-value">--</span>
-                            <span class="aqi-status" id="aqi-status">Syncing...</span>
+                    <div class="detail-item glass">
+                        <i data-lucide="eye"></i>
+                        <div class="detail-content">
+                            <span class="label">Visibility</span>
+                            <span class="value" id="visibility">--</span>
+                        </div>
+                    </div>
+                    <!-- AQI Monitor -->
+                    <div class="detail-item glass aq-monitor" id="aqi-card">
+                        <i data-lucide="info"></i>
+                        <div class="detail-content">
+                            <span class="label">Air Quality (AQI)</span>
+                            <div class="aqi-display">
+                                <span class="value" id="aqi-value">--</span>
+                                <span class="aqi-status" id="aqi-status">Syncing...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Hourly Trend Section (Moved inside detailed view) -->
+            <section class="hourly-trend-container glass">
+                <h3 class="section-title-small">24-Hour Atmosphere Trend</h3>
+                <div class="chart-wrapper">
+                    <svg id="hourly-chart" viewBox="0 0 800 150" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="rgba(255,255,255,0.3)" />
+                                <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+                            </linearGradient>
+                        </defs>
+                        <path class="chart-area" d="" fill="url(#chart-gradient)" />
+                        <path class="chart-line" d="" />
+                        <g class="chart-points"></g>
+                        <g class="chart-labels"></g>
+                    </svg>
+                </div>
+            </section>
+
+            <!-- Forecast Horizontal Section (Moved inside detailed view) -->
+            <section class="forecast-container">
+                <h3 class="section-title">Atmospheric Forecast</h3>
+                <div class="forecast-grid" id="forecast-grid">
+                    <!-- Forecast dynamic content -->
+                </div>
+            </section>
         </section>
 
-        <!-- Hourly Trend Section -->
-        <section class="hourly-trend-container glass">
-            <h3 class="section-title-small">24-Hour Atmosphere Trend</h3>
-            <div class="chart-wrapper">
-                <svg id="hourly-chart" viewBox="0 0 800 150" preserveAspectRatio="none">
-                    <defs>
-                        <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="rgba(255,255,255,0.3)" />
-                            <stop offset="100%" stop-color="rgba(255,255,255,0)" />
-                        </linearGradient>
-                    </defs>
-                    <path class="chart-area" d="" fill="url(#chart-gradient)" />
-                    <path class="chart-line" d="" />
-                    <g class="chart-points"></g>
-                    <g class="chart-labels"></g>
-                </svg>
-            </div>
-        </section>
-
-        <!-- Forecast Horizontal Section -->
-        <section class="forecast-container">
-            <h3 class="section-title">Atmospheric Forecast</h3>
-            <div class="forecast-grid" id="forecast-grid">
-                <!-- Forecast dynamic content -->
-            </div>
+        <section class="dashboard-footer">
+            <span id="update-status" class="status-badge glass">Syncing atmosphere...</span>
         </section>
 
         <footer class="app-footer">

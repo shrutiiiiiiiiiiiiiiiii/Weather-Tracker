@@ -160,6 +160,10 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.icon-btn.glass {
+    padding: 0; /* Reset for circular buttons */
+}
+
 /* Header & Control Section */
 .search-section {
     display: flex;
@@ -235,13 +239,43 @@ body {
     color: var(--accent);
 }
 
-#sound-toggle {
+.icon-btn {
+    background: var(--glass-surface);
+    border: 1px solid var(--glass-border);
+    color: var(--accent);
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
     transition: var(--transition-med);
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.1);
+}
+
+.icon-btn i {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2;
 }
 
 #sound-toggle.active {
     background: var(--accent);
     color: #000;
+}
+
+#refresh-btn.refreshing i {
+    animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* India Shortcuts */
@@ -581,13 +615,158 @@ body {
     }
 }
 
-@media (max-width: 400px) {
-    .details-section {
-        grid-template-columns: 1fr;
-    }
-    
-    .forecast-item {
-        min-width: 150px;
+/* Weather Dashboard V2 */
+.weather-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.weather-card-mini {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.weather-card-mini:hover {
+    transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.card-remove-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--accent-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: var(--transition-med);
+    z-index: 5;
+}
+
+.weather-card-mini:hover .card-remove-btn {
+    opacity: 1;
+}
+
+.card-remove-btn:hover {
+    color: #ff4d4d;
+    transform: scale(1.2);
+}
+
+.mini-location {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.mini-temp-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.2rem;
+}
+
+.mini-temp {
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    font-weight: 800;
+}
+
+.mini-unit {
+    font-size: 1.2rem;
+    font-weight: 400;
+    margin-top: 0.6rem;
+    opacity: 0.6;
+}
+
+.mini-desc {
+    color: var(--accent-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+/* Detailed View V2 */
+.detailed-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+    padding: clamp(1rem, 5vw, 4rem);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    animation: fadeIn 0.4s easeOut;
+}
+
+.detailed-view.hidden {
+    display: none;
+}
+
+.close-btn {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    z-index: 101;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.loading-state {
+    grid-column: 1 / -1;
+    padding: 4rem;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    color: var(--accent-muted);
+}
+
+/* Ensure original styles work inside detailed view */
+.detailed-view .weather-display {
+    width: 100%;
+    max-width: 1000px;
+}
+
+.detailed-view .hourly-trend-container,
+.detailed-view .forecast-container {
+    width: 100%;
+    max-width: 1000px;
+}
+
+.dashboard-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: -1rem;
+}
+
+.status-badge {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent-muted);
+    border-radius: 50px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+@media (max-width: 1000px) {
+    .detailed-view {
         padding: 2rem 1rem;
     }
 }
