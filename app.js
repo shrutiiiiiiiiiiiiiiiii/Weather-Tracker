@@ -21,7 +21,6 @@ const elements = {
     feelsLike: document.getElementById('feels-like'),
     visibility: document.getElementById('visibility'),
     forecastGrid: document.getElementById('forecast-grid'),
-    soundToggle: document.getElementById('sound-toggle'),
     aqiCard: document.getElementById('aqi-card'),
     aqiValue: document.getElementById('aqi-value'),
     aqiStatus: document.getElementById('aqi-status'),
@@ -31,14 +30,15 @@ const elements = {
 
 let currentUnit = 'celsius';
 let savedLocations = [];
+let syncVersion = 0; // Prevent race conditions in async rendering
 
 // V2 Theme System
 const themes = {
-    clear: { colors: ['#00c6fb', '#005bea', '#89f7fe'], fx: 'stars' },
-    cloudy: { colors: ['#30e8bf', '#ff8235', '#2c3e50'], fx: 'none' },
-    rainy: { colors: ['#4facfe', '#00f2fe', '#005bea'], fx: 'rain' },
-    snowy: { colors: ['#e6e9f0', '#eef1f5', '#89f7fe'], fx: 'snow' },
-    night: { colors: ['#0f172a', '#1e3c72', '#2a5298'], fx: 'stars' }
+    clear: { base: '#005bea', colors: ['#00c6fb', '#005bea', '#89f7fe'], fx: 'stars' },
+    cloudy: { base: '#2c3e50', colors: ['#30e8bf', '#ff8235', '#2c3e50'], fx: 'none' },
+    rainy: { base: '#1e3c72', colors: ['#4facfe', '#00f2fe', '#005bea'], fx: 'rain' },
+    snowy: { base: '#374151', colors: ['#e6e9f0', '#eef1f5', '#89f7fe'], fx: 'snow' },
+    night: { base: '#020617', colors: ['#0f172a', '#1e3c72', '#2a5298'], fx: 'stars' }
 };
 
 const weatherCodeMap = {
@@ -222,6 +222,7 @@ function updateGlobalTheme(weather, themeKey) {
     if (weather.current.is_day === 0 && key === 'clear') key = 'night';
     const theme = themes[key];
     
+    document.documentElement.style.setProperty('--bg-base', theme.base);
     document.documentElement.style.setProperty('--gradient-1', theme.colors[0]);
     document.documentElement.style.setProperty('--gradient-2', theme.colors[1]);
     document.documentElement.style.setProperty('--gradient-3', theme.colors[2]);
@@ -269,9 +270,11 @@ function showDetailedView(data, aqiData, name) {
 }
 
 async function renderDashboard() {
+    const version = ++syncVersion; // Capture current version
     elements.weatherDashboard.innerHTML = '';
     
     if (savedLocations.length === 0) {
+        if (version !== syncVersion) return;
         elements.weatherDashboard.innerHTML = `
             <div class="loading-state glass">
                 <p>No locations saved. Search a city to get started!</p>
@@ -286,6 +289,9 @@ async function renderDashboard() {
 
     try {
         const results = await Promise.all(fetches);
+        if (version !== syncVersion) return; // Discard if a newer search started
+        
+        elements.weatherDashboard.innerHTML = ''; // Final clear before render
         
         results.forEach(([weather, aqi], index) => {
             const loc = savedLocations[index];
@@ -319,27 +325,52 @@ async function renderDashboard() {
 
         if (results.length > 0) {
             updateGlobalTheme(results[0][0]);
+        } else {
+            // Default theme for empty state (night/clear)
+            document.documentElement.style.setProperty('--bg-base', themes.night.base);
+            document.documentElement.style.setProperty('--gradient-1', themes.night.colors[0]);
+            document.documentElement.style.setProperty('--gradient-2', themes.night.colors[1]);
+            document.documentElement.style.setProperty('--gradient-3', themes.night.colors[2]);
+            vfx.setType(themes.night.fx);
         }
         
         lucide.createIcons();
         updateLastUpdated();
     } catch (e) {
+        if (version !== syncVersion) return;
         console.error(e);
         elements.weatherDashboard.innerHTML = `<div class="loading-state glass"><p>Error fetching atmosphere data.</p></div>`;
     }
 }
 
-async function addLocation(city) {
+async function setLocations(query) {
+    elements.weatherDashboard.innerHTML = `<div class="loading-state glass"><p>Syncing atmospheres...</p></div>`;
+    elements.cityInput.value = ''; // Clear input immediately for better UX
+    
+    // Split by commas and clean up
+    const cities = query.split(',').map(c => c.trim()).filter(c => c !== "");
+    
     try {
-        const coords = await getCoordinates(city);
-        // Check if already exists
-        if (savedLocations.some(l => l.name === coords.name)) {
-            alert('Location already in dashboard');
-            return;
+        const newLocations = [];
+        for (const city of cities) {
+            try {
+                const coords = await getCoordinates(city);
+                newLocations.push(coords);
+            } catch (err) {
+                console.warn(`Could not find coordinates for: ${city}`);
+            }
         }
-        savedLocations.push(coords);
+        
+        if (newLocations.length === 0) {
+            throw new Error('No valid atmospheric coordinates found');
+        }
+        
+        savedLocations = newLocations;
         await renderDashboard();
-    } catch (e) { alert(e.message); }
+    } catch (e) { 
+        alert(e.message);
+        renderDashboard(); // Restore previous or empty state
+    }
 }
 
 function removeLocation(index) {
@@ -366,14 +397,14 @@ elements.refreshBtn.addEventListener('click', async () => {
 });
 
 elements.searchBtn.addEventListener('click', async () => {
-    const city = elements.cityInput.value.trim();
-    if (city) addLocation(city);
+    const query = elements.cityInput.value.trim();
+    if (query) setLocations(query);
 });
 
 elements.cityInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-        const city = elements.cityInput.value.trim();
-        if (city) addLocation(city);
+        const query = elements.cityInput.value.trim();
+        if (query) setLocations(query);
     }
 });
 
@@ -407,25 +438,21 @@ elements.unitF.addEventListener('click', () => {
     }
 });
 
-elements.soundToggle.addEventListener('click', () => {
-    const isActive = elements.soundToggle.classList.toggle('active');
-    const icon = elements.soundToggle.querySelector('i');
-    icon.setAttribute('data-lucide', isActive ? 'volume-2' : 'volume-x');
-    lucide.createIcons();
-});
-
 elements.locateBtn.addEventListener('click', () => {
     navigator.geolocation.getCurrentPosition(async (pos) => {
         const { latitude, longitude } = pos.coords;
         const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
         const data = await resp.json();
         const name = data.address.city || data.address.town || data.address.village || 'Current Location';
-        await addLocation(name);
+        await setLocations(name);
     });
 });
 
 document.querySelectorAll('.city-pill').forEach(pill => {
-    pill.addEventListener('click', () => addLocation(pill.dataset.city));
+    pill.addEventListener('click', () => {
+        const city = pill.dataset.city;
+        if (city) setLocations(city);
+    });
 });
 
 // Parallax
