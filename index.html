@@ -10,6 +10,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Location Permission Prompt -->
+    <div class="permission-modal hidden" id="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title" aria-describedby="permission-desc">
+        <div class="permission-card glass">
+            <div class="permission-icon">
+                <i data-lucide="map-pin"></i>
+            </div>
+            <h2 id="permission-title">Use your location?</h2>
+            <p id="permission-desc">Allow location access to automatically show weather for your current area.</p>
+            <div class="permission-actions">
+                <button id="permission-allow" class="btn-primary" type="button">Allow</button>
+                <button id="permission-skip" class="btn-secondary glass" type="button">Not now</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Background System -->
     <div class="background-container" id="bg-container">
         <canvas id="atmospheric-fx"></canvas>
@@ -34,6 +49,9 @@
                 <button id="unit-c" class="unit-btn active">°C</button>
                 <button id="unit-f" class="unit-btn">°F</button>
             </div>
+            <button id="theme-toggle" class="icon-btn glass" type="button" title="Toggle Light/Dark Atmosphere" aria-label="Toggle theme" aria-pressed="false">
+                <i data-lucide="moon"></i>
+            </button>
             <button id="refresh-btn" class="icon-btn glass" title="Refresh Atmosphere">
                 <i data-lucide="rotate-cw"></i>
             </button>

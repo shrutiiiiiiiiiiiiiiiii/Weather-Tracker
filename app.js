@@ -25,20 +25,51 @@ const elements = {
     aqiValue: document.getElementById('aqi-value'),
     aqiStatus: document.getElementById('aqi-status'),
     hourlyChart: document.getElementById('hourly-chart'),
-    canvas: document.getElementById('atmospheric-fx')
+    canvas: document.getElementById('atmospheric-fx'),
+    permissionModal: document.getElementById('permission-modal'),
+    permissionAllow: document.getElementById('permission-allow'),
+    permissionSkip: document.getElementById('permission-skip')
 };
 
 let currentUnit = 'celsius';
 let savedLocations = [];
-let syncVersion = 0; // Prevent race conditions in async rendering
+let syncVersion = 0;
 
-// V2 Theme System
+function getInitialUiMode() {
+    const storedUiMode = localStorage.getItem('weather-ui-mode');
+    if (storedUiMode === 'light' || storedUiMode === 'dark') {
+        return storedUiMode;
+    }
+
+    const prefersDarkMode =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    return prefersDarkMode ? 'dark' : 'light';
+}
+
+let uiMode = getInitialUiMode();
+document.documentElement.setAttribute('data-theme', uiMode);
+
+// V2 Theme System - Reactive Palettes
 const themes = {
-    clear: { base: '#005bea', colors: ['#00c6fb', '#005bea', '#89f7fe'], fx: 'stars' },
-    cloudy: { base: '#2c3e50', colors: ['#30e8bf', '#ff8235', '#2c3e50'], fx: 'none' },
-    rainy: { base: '#1e3c72', colors: ['#4facfe', '#00f2fe', '#005bea'], fx: 'rain' },
-    snowy: { base: '#374151', colors: ['#e6e9f0', '#eef1f5', '#89f7fe'], fx: 'snow' },
-    night: { base: '#020617', colors: ['#0f172a', '#1e3c72', '#2a5298'], fx: 'stars' }
+    dark: {
+        clear: { base: '#005bea', colors: ['#00c6fb', '#005bea', '#89f7fe'], fx: 'stars' },
+        cloudy: { base: '#2d3436', colors: ['#636e72', '#2d3436', '#b2bec3'], fx: 'none' },
+        rainy: { base: '#1e3c72', colors: ['#2a5298', '#1e3c72', '#4facfe'], fx: 'rain' },
+        snowy: { base: '#4b5563', colors: ['#d1d5db', '#9ca3af', '#eef1f5'], fx: 'snow' },
+        storm: { base: '#0f172a', colors: ['#1e1b4b', '#0f172a', '#312e81'], fx: 'lightning' },
+        night: { base: '#020617', colors: ['#0f172a', '#1e3c72', '#2a5298'], fx: 'stars' }
+    },
+    light: {
+        clear: { base: '#60a5fa', colors: ['#93c5fd', '#60a5fa', '#bfdbfe'], fx: 'stars' },
+        cloudy: { base: '#94a3b8', colors: ['#cbd5e1', '#94a3b8', '#e2e8f0'], fx: 'none' },
+        rainy: { base: '#3b82f6', colors: ['#60a5fa', '#3b82f6', '#93c5fd'], fx: 'rain' },
+        snowy: { base: '#cbd5e1', colors: ['#f1f5f9', '#cbd5e1', '#ffffff'], fx: 'snow' },
+        storm: { base: '#334155', colors: ['#475569', '#334155', '#1e293b'], fx: 'lightning' },
+        night: { base: '#1e293b', colors: ['#334155', '#1e293b', '#0f172a'], fx: 'stars' }
+    }
 };
 
 const weatherCodeMap = {
@@ -54,7 +85,7 @@ const weatherCodeMap = {
     71: { desc: 'Light Snowfall', icon: 'cloud-snow', theme: 'snowy' },
     73: { desc: 'Moderate Snow', icon: 'cloud-snow', theme: 'snowy' },
     80: { desc: 'Passing Showers', icon: 'cloud-rain', theme: 'rainy' },
-    95: { desc: 'Thunderstorm', icon: 'cloud-lightning', theme: 'rainy' }
+    95: { desc: 'Thunderstorm', icon: 'cloud-lightning', theme: 'storm' }
 };
 
 /**
@@ -124,6 +155,21 @@ class AtmosphericFX {
                 this.ctx.beginPath();
                 this.ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
                 this.ctx.fill();
+            });
+        } else if (this.type === 'lightning') {
+            if (Math.random() > 0.98) {
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            this.ctx.lineWidth = 1;
+            this.particles.forEach(p => {
+                this.ctx.beginPath();
+                this.ctx.moveTo(p.x, p.y);
+                this.ctx.lineTo(p.x, p.y + 10);
+                this.ctx.stroke();
+                p.y += p.speed * 1.5;
+                if (p.y > this.canvas.height) p.y = -10;
             });
         }
         
@@ -220,9 +266,13 @@ function updateGlobalTheme(weather, themeKey) {
     const info = weatherCodeMap[weather.current.weather_code] || { theme: 'clear' };
     let key = themeKey || info.theme;
     if (weather.current.is_day === 0 && key === 'clear') key = 'night';
-    const theme = themes[key];
     
-    document.documentElement.style.setProperty('--bg-base', theme.base);
+    // Choose correct palette based on mode
+    const palette = themes[uiMode] || themes.dark;
+    const theme = palette[key] || palette.clear;
+    
+    // Only update atmospheric background; UI theme (light/dark) controls overall page styling
+    document.documentElement.style.setProperty('--atmo-bg', theme.base);
     document.documentElement.style.setProperty('--gradient-1', theme.colors[0]);
     document.documentElement.style.setProperty('--gradient-2', theme.colors[1]);
     document.documentElement.style.setProperty('--gradient-3', theme.colors[2]);
@@ -327,11 +377,13 @@ async function renderDashboard() {
             updateGlobalTheme(results[0][0]);
         } else {
             // Default theme for empty state (night/clear)
-            document.documentElement.style.setProperty('--bg-base', themes.night.base);
-            document.documentElement.style.setProperty('--gradient-1', themes.night.colors[0]);
-            document.documentElement.style.setProperty('--gradient-2', themes.night.colors[1]);
-            document.documentElement.style.setProperty('--gradient-3', themes.night.colors[2]);
-            vfx.setType(themes.night.fx);
+            const palette = themes[uiMode] || themes.dark;
+            const theme = palette.night;
+            document.documentElement.style.setProperty('--atmo-bg', theme.base);
+            document.documentElement.style.setProperty('--gradient-1', theme.colors[0]);
+            document.documentElement.style.setProperty('--gradient-2', theme.colors[1]);
+            document.documentElement.style.setProperty('--gradient-3', theme.colors[2]);
+            vfx.setType(theme.fx);
         }
         
         lucide.createIcons();
@@ -387,9 +439,55 @@ function updateLastUpdated() {
     }
 }
 
+async function locateAndLoad() {
+    if (!navigator.geolocation) {
+        renderDashboard();
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            const data = await resp.json();
+            const name = data.address.city || data.address.town || data.address.village || 'Current Location';
+            await setLocations(name);
+        } catch (err) {
+            console.warn("Geolocation fetch failed, starting empty.");
+            renderDashboard();
+        }
+    }, () => {
+        // Permission denied or error
+        renderDashboard();
+    });
+}
+
+function hidePermissionModal() {
+    if (elements.permissionModal) elements.permissionModal.classList.add('hidden');
+}
+
+function showPermissionModal() {
+    if (!elements.permissionModal) return;
+    elements.permissionModal.classList.remove('hidden');
+    lucide.createIcons();
+}
+
 // Event Listeners
 elements.refreshBtn.addEventListener('click', async () => {
     elements.refreshBtn.classList.add('refreshing');
+    // Reset dashboard (remove currently shown cities)
+    savedLocations = [];
+    syncVersion++; // invalidate any in-flight renders
+
+    // Close detailed view if it's open
+    if (elements.detailedView && !elements.detailedView.classList.contains('hidden')) {
+        elements.detailedView.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Clear input for clarity
+    if (elements.cityInput) elements.cityInput.value = '';
+
     await renderDashboard();
     setTimeout(() => {
         elements.refreshBtn.classList.remove('refreshing');
@@ -438,14 +536,31 @@ elements.unitF.addEventListener('click', () => {
     }
 });
 
-elements.locateBtn.addEventListener('click', () => {
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-        const data = await resp.json();
-        const name = data.address.city || data.address.town || data.address.village || 'Current Location';
-        await setLocations(name);
+// Theme Toggle Logic
+const themeBtn = document.getElementById('theme-toggle');
+if (themeBtn) {
+    const updateThemeToggleUI = () => {
+        const icon = themeBtn.querySelector('i');
+        if (icon) {
+            icon.setAttribute('data-lucide', uiMode === 'dark' ? 'moon' : 'sun');
+        }
+        themeBtn.setAttribute('aria-pressed', uiMode === 'dark' ? 'true' : 'false');
+        lucide.createIcons();
+    };
+
+    themeBtn.addEventListener('click', () => {
+        uiMode = uiMode === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('weather-ui-mode', uiMode);
+        document.documentElement.setAttribute('data-theme', uiMode);
+        updateThemeToggleUI();
+        renderDashboard();
     });
+    // Set initial icon/state
+    updateThemeToggleUI();
+}
+
+elements.locateBtn.addEventListener('click', () => {
+    locateAndLoad();
 });
 
 document.querySelectorAll('.city-pill').forEach(pill => {
@@ -464,4 +579,49 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // Init
-renderDashboard();
+// Auto-geolocation on arrival
+window.addEventListener('load', () => {
+    // Ask for location access via in-app prompt (only once)
+    const asked = localStorage.getItem('weather-location-asked') === '1';
+
+    // If already granted, we can load immediately without showing the modal
+    const canCheckPermission = typeof navigator.permissions !== 'undefined' && typeof navigator.permissions.query === 'function';
+    const maybeAuto = async () => {
+        if (!canCheckPermission) return false;
+        try {
+            const status = await navigator.permissions.query({ name: 'geolocation' });
+            if (status.state === 'granted') {
+                await locateAndLoad();
+                return true;
+            }
+        } catch (_) {}
+        return false;
+    };
+
+    (async () => {
+        const autoLoaded = await maybeAuto();
+        if (autoLoaded) return;
+
+        if (!asked) {
+            showPermissionModal();
+        } else {
+            renderDashboard();
+        }
+    })();
+});
+
+if (elements.permissionAllow) {
+    elements.permissionAllow.addEventListener('click', async () => {
+        localStorage.setItem('weather-location-asked', '1');
+        hidePermissionModal();
+        await locateAndLoad();
+    });
+}
+
+if (elements.permissionSkip) {
+    elements.permissionSkip.addEventListener('click', () => {
+        localStorage.setItem('weather-location-asked', '1');
+        hidePermissionModal();
+        renderDashboard();
+    });
+}
