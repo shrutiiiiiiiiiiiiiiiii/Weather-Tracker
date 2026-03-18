@@ -458,7 +458,11 @@ async function locateAndLoad() {
         }
     }, () => {
         // Permission denied or error
-        renderDashboard();
+        elements.weatherDashboard.innerHTML = `
+            <div class="loading-state glass">
+                <p>Location unavailable. Please tap the crosshair icon to try again, or search a city.</p>
+            </div>
+        `;
     });
 }
 
@@ -582,37 +586,25 @@ document.addEventListener('mousemove', (e) => {
 // Auto-geolocation on arrival
 window.addEventListener('load', () => {
     // Ask for location access via in-app prompt (only once)
-    const asked = localStorage.getItem('weather-location-asked') === '1';
+    // iOS Safari often lacks Permissions API, so we persist the user's choice.
+    const consent = localStorage.getItem('weather-location-consent'); // 'allow' | 'skip' | null
 
-    // If already granted, we can load immediately without showing the modal
-    const canCheckPermission = typeof navigator.permissions !== 'undefined' && typeof navigator.permissions.query === 'function';
-    const maybeAuto = async () => {
-        if (!canCheckPermission) return false;
-        try {
-            const status = await navigator.permissions.query({ name: 'geolocation' });
-            if (status.state === 'granted') {
-                await locateAndLoad();
-                return true;
-            }
-        } catch (_) {}
-        return false;
-    };
+    if (consent === 'allow') {
+        locateAndLoad();
+        return;
+    }
 
-    (async () => {
-        const autoLoaded = await maybeAuto();
-        if (autoLoaded) return;
+    if (consent === 'skip') {
+        renderDashboard();
+        return;
+    }
 
-        if (!asked) {
-            showPermissionModal();
-        } else {
-            renderDashboard();
-        }
-    })();
+    showPermissionModal();
 });
 
 if (elements.permissionAllow) {
     elements.permissionAllow.addEventListener('click', async () => {
-        localStorage.setItem('weather-location-asked', '1');
+        localStorage.setItem('weather-location-consent', 'allow');
         hidePermissionModal();
         await locateAndLoad();
     });
@@ -620,7 +612,7 @@ if (elements.permissionAllow) {
 
 if (elements.permissionSkip) {
     elements.permissionSkip.addEventListener('click', () => {
-        localStorage.setItem('weather-location-asked', '1');
+        localStorage.setItem('weather-location-consent', 'skip');
         hidePermissionModal();
         renderDashboard();
     });

@@ -585,6 +585,97 @@ body::before {
     }
 }
 
+/* Mobile polish (toolbar layout + icon sizing) */
+@media (max-width: 560px) {
+    .app-container {
+        padding: 1rem 0.9rem 1.4rem;
+        gap: 1.2rem;
+    }
+
+    /* Make header feel like a modern toolbar */
+    .search-section {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        grid-template-areas:
+            "search search search"
+            "units theme refresh";
+        gap: 0.55rem;
+        align-items: center;
+    }
+
+    .search-container {
+        grid-area: search;
+        flex: 1 1 100%;
+        min-height: 54px;
+        padding: 0.55rem 0.75rem;
+        gap: 0.6rem;
+        border-radius: 18px;
+    }
+
+    #city-input {
+        font-size: 0.98rem;
+        padding: 0.35rem 0;
+        min-width: 0;
+    }
+
+    .btn-primary {
+        padding: 0.62rem 0.9rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.7px;
+    }
+
+    .units-toggle {
+        grid-area: units;
+        padding: 0.28rem;
+        border-radius: 999px;
+    }
+
+    .unit-btn {
+        padding: 0.45rem 0.75rem;
+        font-size: 0.92rem;
+    }
+
+    .icon-btn {
+        width: 38px;
+        height: 38px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .icon-btn i {
+        width: 18px;
+        height: 18px;
+        stroke-width: 2.25;
+    }
+
+    .icon-btn:hover {
+        transform: translateY(-1px) scale(1.06);
+    }
+
+    #theme-toggle { grid-area: theme; justify-self: center; }
+    #refresh-btn { grid-area: refresh; justify-self: end; }
+
+    /* Pills */
+    .india-shortcuts-wrapper {
+        gap: 0.6rem;
+    }
+
+    .shortcut-label {
+        letter-spacing: 1.4px;
+    }
+
+    .city-pill {
+        padding: 0.55rem 1rem;
+        font-size: 0.88rem;
+    }
+}
+
+/* Override tablet/768px rules that bleed into mobile */
+@media (max-width: 560px) {
+    .search-section { flex-direction: unset; align-items: unset; }
+    .search-section .units-toggle { margin-bottom: 0; }
+    .units-toggle, #sound-toggle { width: unset; align-self: unset; }
+}
+
 /* Main Display V2 */
 .weather-display {
     display: grid;
